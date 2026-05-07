@@ -84,11 +84,18 @@ This extension maps marketplace paths to those keys as follows.
 
 For:
 
-- `~/.claude/plugins/marketplaces/<marketplace>/skills/<plugin>/SKILL.md`
+- `~/.claude/plugins/marketplaces/<marketplace>/skills/<skill>/SKILL.md`
 
-it checks whether this plugin key is enabled:
+it loads the skill when either of these plugin keys is enabled:
 
-- `<plugin>@<marketplace>`
+- `<marketplace>@<marketplace>`
+- `<skill>@<marketplace>`
+
+This supports marketplace-level plugin layouts like:
+
+- `~/.claude/plugins/marketplaces/minimax-skills/skills/minimax-pdf/SKILL.md`
+
+where Claude installs/enables only `minimax-skills@minimax-skills`, plus per-skill plugin layouts where each top-level skill has its own key.
 
 #### Nested plugin skills
 

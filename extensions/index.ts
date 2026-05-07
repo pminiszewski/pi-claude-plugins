@@ -143,9 +143,10 @@ async function findResources(cwd: string): Promise<DiscoveredResources> {
     const marketplacePluginKey = `${marketplaceName}@${marketplaceName}`;
 
     const topLevelSkillDirs = await readDirectories(path.join(marketplaceDir, "skills"));
+    const isMarketplacePluginEnabled = enabledPluginKeys.has(marketplacePluginKey);
     for (const skillDir of topLevelSkillDirs) {
       const pluginKey = `${path.basename(skillDir)}@${marketplaceName}`;
-      if (!enabledPluginKeys.has(pluginKey)) {
+      if (!isMarketplacePluginEnabled && !enabledPluginKeys.has(pluginKey)) {
         continue;
       }
 
@@ -155,7 +156,7 @@ async function findResources(cwd: string): Promise<DiscoveredResources> {
       }
     }
 
-    if (enabledPluginKeys.has(marketplacePluginKey)) {
+    if (isMarketplacePluginEnabled) {
       promptPaths.push(...(await readMarkdownFiles(path.join(marketplaceDir, "commands"))));
     }
 
