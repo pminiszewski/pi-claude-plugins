@@ -132,14 +132,69 @@ type DiscoveredResources = {
   promptPaths: string[];
 };
 
+type MarketplaceEntry = { name: string; dir: string };
+
+async function resolveDirectoryMarketplaces(): Promise<MarketplaceEntry[]> {
+  const entries: MarketplaceEntry[] = [];
+  const seen = new Set<string>();
+
+  const tryAdd = (name: string, dir: string) => {
+    const normalized = normalizePath(dir);
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    entries.push({ name, dir: normalized });
+  };
+
+  try {
+    const raw = await readFile(path.join(os.homedir(), ".claude", "plugins", "known_marketplaces.json"), "utf8");
+    const parsed = JSON.parse(raw) as Record<string, { source?: { source?: string; path?: string } }>;
+    for (const [key, value] of Object.entries(parsed)) {
+      if (value?.source?.source === "directory" && typeof value.source.path === "string") {
+        tryAdd(key, value.source.path);
+      }
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  try {
+    const raw = await readFile(CLAUDE_SETTINGS_PATH, "utf8");
+    const parsed = JSON.parse(raw) as {
+      extraKnownMarketplaces?: Record<string, { source?: { source?: string; path?: string } }>;
+    };
+    for (const [key, value] of Object.entries(parsed.extraKnownMarketplaces ?? {})) {
+      if (value?.source?.source === "directory" && typeof value.source.path === "string") {
+        tryAdd(key, value.source.path);
+      }
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  return entries;
+}
+
 async function findResources(cwd: string): Promise<DiscoveredResources> {
   const enabledPluginKeys = await loadEnabledPluginKeys(cwd);
-  const marketplaceDirs = await readDirectories(MARKETPLACES_DIR);
+
+  const marketplaceEntries: MarketplaceEntry[] = [];
+  const seen = new Set<string>();
+  for (const dir of await readDirectories(MARKETPLACES_DIR)) {
+    const normalized = normalizePath(dir);
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    marketplaceEntries.push({ name: path.basename(dir), dir: normalized });
+  }
+  for (const entry of await resolveDirectoryMarketplaces()) {
+    if (seen.has(entry.dir)) continue;
+    seen.add(entry.dir);
+    marketplaceEntries.push(entry);
+  }
+
   const skillPaths: string[] = [];
   const promptPaths: string[] = [];
 
-  for (const marketplaceDir of marketplaceDirs) {
-    const marketplaceName = path.basename(marketplaceDir);
+  for (const { name: marketplaceName, dir: marketplaceDir } of marketplaceEntries) {
     const marketplacePluginKey = `${marketplaceName}@${marketplaceName}`;
 
     const topLevelSkillDirs = await readDirectories(path.join(marketplaceDir, "skills"));
